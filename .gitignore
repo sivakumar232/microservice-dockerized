@@ -1,15 +1,4 @@
 # ===========================
-# Docker (excluded intentionally)
-# ===========================
-Dockerfile
-docker-compose.yml
-docker-compose.*.yml
-.dockerignore
-*.swp
-*.swo
-HOW_TO_RUN.md
-
-# ===========================
 # Node.js
 # ===========================
 node_modules/

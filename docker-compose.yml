@@ -1,0 +1,129 @@
+
+services:
+  mysql-db:
+    image: mysql:latest
+    container_name: mysql-microservices
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rfk7znn9sc
+    ports:
+      - "3308:3306" 
+    volumes: 
+      - mysql_volume:/var/lib/mysql
+      - ./services/auth-service/src/db/init.sql:/docker-entrypoint-initdb.d/auth-init.sql
+      - ./services/order-service/src/db/init.sql:/docker-entrypoint-initdb.d/order-init.sql
+      - ./services/product-service/src/db/init.sql:/docker-entrypoint-initdb.d/product-init.sql
+      - ./services/user-service/src/db/init.sql:/docker-entrypoint-initdb.d/user-init.sql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+
+  frontend-service:
+    build:
+      context: ./frontend
+    container_name: shopflow-frontend
+    ports:
+      - "8080:80"
+    restart: always
+    networks: 
+      - frontend-network
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: auth_container
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks: 
+      - backend-network
+    ports:
+      - "3001:3000"
+    environment: 
+      LISTEN_PORT: 3000
+      DB_HOST: mysql-db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rfk7znn9sc
+      DB_NAME: auth_db
+      JWT_SECRET: your_secret_jwt_key
+      JWT_REFRESH_SECRET: your_refresh_secret
+      JWT_EXPIRES_IN: 15m
+      ALLOWED_ORIGIN: http://localhost:3000
+  order-service: 
+     build:
+       context: ./services/order-service
+     container_name: order_container
+     depends_on:
+       mysql-db:
+         condition: service_healthy
+     networks:
+        - backend-network
+     ports:
+        - "3002:3000"
+     environment:
+       PORT: 3000
+       DB_HOST: mysql-db
+       DB_PORT: 3306
+       DB_USER: root
+       DB_PASSWORD: rfk7znn9sc
+       DB_NAME: order_db
+       JWT_SECRET: your_secret_jwt_key
+       ALLOWED_ORIGINS: http://localhost:3000
+  product-service:
+     build:
+       context: ./services/product-service
+     container_name: product_container
+     depends_on:
+       mysql-db:
+         condition: service_healthy
+     networks:
+       - backend-network
+     ports:
+       - "3003:3000"
+     environment:
+       PORT: 3000
+       DB_HOST: mysql-db
+       DB_PORT: 3306
+       DB_USER: root
+       DB_PASSWORD: rfk7znn9sc
+       DB_NAME: product_db
+       JWT_SECRET: your_secret_jwt_key
+       ALLOWED_ORIGINS: http://localhost:3000
+   
+  user-service:
+     build:
+       context: ./services/user-service
+     container_name: user_container
+     depends_on:
+       mysql-db:
+         condition: service_healthy
+     networks:
+       - backend-network
+     ports:
+       - "3004:3000"
+     environment:
+       PORT: 3000
+       DB_HOST: mysql-db
+       DB_PORT: 3306
+       DB_USER: root
+       DB_PASSWORD: rfk7znn9sc
+       DB_NAME: user_db 
+       JWT_SECRET: your_secret_jwt_key
+       ALLOWED_ORIGINS: http://localhost:3000
+
+
+networks:
+  backend-network:
+    driver: bridge
+  frontend-network:
+    driver: bridge
+
+volumes:
+  mysql_volume:
