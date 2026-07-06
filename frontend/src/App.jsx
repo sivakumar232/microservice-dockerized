@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
+import AdminLoginPage from './pages/AdminLoginPage';
 import Dashboard from './pages/Dashboard';
 import ProductsPage from './pages/ProductsPage';
 import OrdersPage from './pages/OrdersPage';
@@ -47,6 +48,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/admin/login" element={user?.role === 'admin' ? <Navigate to="/dashboard" replace /> : <AdminLoginPage />} />
+      <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
 
       <Route path="/dashboard" element={
         <ProtectedLayout><Dashboard /></ProtectedLayout>

@@ -29,10 +29,11 @@ services:
       context: ./frontend
     container_name: shopflow-frontend
     ports:
-      - "8080:80"
+      - "3000:80"
     restart: always
     networks: 
       - frontend-network
+      - backend-network   # needed so Nginx can proxy_pass to backend containers by name
 
   auth-service:
     build:
@@ -55,7 +56,7 @@ services:
       JWT_SECRET: your_secret_jwt_key
       JWT_REFRESH_SECRET: your_refresh_secret
       JWT_EXPIRES_IN: 15m
-      ALLOWED_ORIGIN: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
   order-service: 
      build:
        context: ./services/order-service

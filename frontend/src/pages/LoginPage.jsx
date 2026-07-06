@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -119,6 +119,26 @@ export default function LoginPage() {
           >
             {isLogin ? 'Sign up' : 'Sign in'}
           </button>
+        </div>
+
+        {/* Admin portal link */}
+        <div style={{ textAlign: 'center', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <Link
+            to="/admin/login"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none',
+              transition: 'color 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Admin Portal
+          </Link>
         </div>
       </div>
     </div>
