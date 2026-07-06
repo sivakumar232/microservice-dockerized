@@ -14,70 +14,26 @@
 
 ```
 3tier-app/
+├── docker-compose.yml       # Orchestrates all containers
+├── architecture.jpeg        # System architecture diagram
 │
-├── docker-compose.yml            # Orchestrates all containers
-├── architecture.jpeg             # System architecture diagram
-│
-├── frontend/                     # React + Vite SPA (served by Nginx)
-│   ├── Dockerfile                # Multi-stage: build → Nginx serve
-│   ├── nginx.conf                # Reverse proxy → backend services
-│   ├── index.html
-│   ├── vite.config.js
+├── frontend/                # React + Vite SPA (Nginx served)
+│   ├── Dockerfile
+│   ├── nginx.conf           # Reverse proxy to backend services
 │   └── src/
-│       ├── main.jsx
-│       ├── App.jsx
-│       ├── index.css
-│       ├── pages/                # Dashboard, Products, Orders, Profile, Users
-│       ├── components/           # Sidebar, shared UI
-│       ├── context/              # AuthContext (JWT state)
-│       ├── hooks/                # Custom React hooks
-│       └── services/             # api.js — all HTTP calls to backend
+│       ├── pages/           # Dashboard, Products, Orders, Profile
+│       ├── components/      # Sidebar, shared UI
+│       ├── context/         # AuthContext (JWT state)
+│       └── services/        # api.js — all HTTP calls
 │
 └── services/
-    ├── auth-service/             # JWT authentication
-    │   ├── Dockerfile
-    │   ├── .env.example
-    │   └── src/
-    │       ├── index.js          # Express app entry
-    │       ├── config/           # DB & JWT config
-    │       ├── controllers/      # Auth logic
-    │       ├── middleware/       # JWT verify, error handler
-    │       ├── routes/           # /api/auth/*
-    │       └── db/               # init.sql — creates auth_db
-    │
-    ├── user-service/             # User profiles & addresses
-    │   ├── Dockerfile
-    │   ├── .env.example
-    │   └── src/
-    │       ├── index.js
-    │       ├── config/
-    │       ├── controllers/
-    │       ├── middleware/
-    │       ├── routes/           # /api/users/*
-    │       └── db/               # init.sql — creates user_db
-    │
-    ├── product-service/          # Products & categories
-    │   ├── Dockerfile
-    │   ├── .env.example
-    │   └── src/
-    │       ├── index.js
-    │       ├── config/
-    │       ├── controllers/
-    │       ├── middleware/
-    │       ├── routes/           # /api/products/*
-    │       └── db/               # init.sql — creates product_db
-    │
-    └── order-service/            # Cart & orders
-        ├── Dockerfile
-        ├── .env.example
-        └── src/
-            ├── index.js
-            ├── config/
-            ├── controllers/
-            ├── middleware/
-            ├── routes/           # /api/orders/*
-            └── db/               # init.sql — creates order_db
+    ├── auth-service/        # JWT auth  → auth_db
+    ├── user-service/        # Profiles  → user_db
+    ├── product-service/     # Products  → product_db
+    └── order-service/       # Cart/Orders → order_db
 ```
+
+> Each service has its own `Dockerfile`, `.env.example`, and `src/` with `routes/`, `controllers/`, `middleware/`, and `db/init.sql`.
 
 ---
 
