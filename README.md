@@ -1,86 +1,161 @@
 # ShopFlow — React + Node.js + MySQL Microservices
 
-A full-stack e-commerce platform built with microservice architecture.
+> A full-stack e-commerce platform built with a clean **3-tier microservice architecture**, containerized with Docker and orchestrated via Docker Compose.
+
+---
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────┐      ┌──────────────────────────────────────────┐
-│  React Frontend │ ───► │             (Your API Gateway)           │
-│   Port: 3000    │      └──────┬──────────┬──────────┬────────────┘
-└─────────────────┘             │          │          │
-                         ┌──────┴─┐  ┌────┴──┐  ┌───┴───┐  ┌─────────┐
-                         │  Auth  │  │ User  │  │Product│  │  Order  │
-                         │  3001  │  │ 3002  │  │  3003 │  │  3004   │
-                         └──┬─────┘  └───┬───┘  └───┬───┘  └────┬────┘
-                            │            │           │           │
-                         auth_db      user_db   product_db   order_db
-```
+![ShopFlow Architecture](./architecture.jpeg)
+
+---
 
 ## 📁 Project Structure
 
 ```
 3tier-app/
-├── frontend/                 # React + Vite SPA
+│
+├── docker-compose.yml            # Orchestrates all containers
+├── architecture.jpeg             # System architecture diagram
+│
+├── frontend/                     # React + Vite SPA (served by Nginx)
+│   ├── Dockerfile                # Multi-stage: build → Nginx serve
+│   ├── nginx.conf                # Reverse proxy → backend services
+│   ├── index.html
+│   ├── vite.config.js
 │   └── src/
-│       ├── pages/            # Dashboard, Products, Orders, Profile, Users
-│       ├── components/       # Sidebar
-│       ├── context/          # AuthContext
-│       └── services/         # api.js (all service calls)
+│       ├── main.jsx
+│       ├── App.jsx
+│       ├── index.css
+│       ├── pages/                # Dashboard, Products, Orders, Profile, Users
+│       ├── components/           # Sidebar, shared UI
+│       ├── context/              # AuthContext (JWT state)
+│       ├── hooks/                # Custom React hooks
+│       └── services/             # api.js — all HTTP calls to backend
+│
 └── services/
-    ├── auth-service/         # Port 3001 — JWT auth
-    ├── user-service/         # Port 3002 — Profiles & addresses
-    ├── product-service/      # Port 3003 — Products & categories
-    └── order-service/        # Port 3004 — Cart & orders
+    ├── auth-service/             # JWT authentication
+    │   ├── Dockerfile
+    │   ├── .env.example
+    │   └── src/
+    │       ├── index.js          # Express app entry
+    │       ├── config/           # DB & JWT config
+    │       ├── controllers/      # Auth logic
+    │       ├── middleware/       # JWT verify, error handler
+    │       ├── routes/           # /api/auth/*
+    │       └── db/               # init.sql — creates auth_db
+    │
+    ├── user-service/             # User profiles & addresses
+    │   ├── Dockerfile
+    │   ├── .env.example
+    │   └── src/
+    │       ├── index.js
+    │       ├── config/
+    │       ├── controllers/
+    │       ├── middleware/
+    │       ├── routes/           # /api/users/*
+    │       └── db/               # init.sql — creates user_db
+    │
+    ├── product-service/          # Products & categories
+    │   ├── Dockerfile
+    │   ├── .env.example
+    │   └── src/
+    │       ├── index.js
+    │       ├── config/
+    │       ├── controllers/
+    │       ├── middleware/
+    │       ├── routes/           # /api/products/*
+    │       └── db/               # init.sql — creates product_db
+    │
+    └── order-service/            # Cart & orders
+        ├── Dockerfile
+        ├── .env.example
+        └── src/
+            ├── index.js
+            ├── config/
+            ├── controllers/
+            ├── middleware/
+            ├── routes/           # /api/orders/*
+            └── db/               # init.sql — creates order_db
 ```
 
-## 🚀 Quick Start
+---
 
-### 1. Setup MySQL Databases
+## 🐳 Container Networking & Port Mapping
 
-Run each init script in MySQL:
+All containers are connected via **Docker bridge networks** defined in `docker-compose.yml`.
+
+### Networks
+
+| Network | Purpose |
+|---|---|
+| `backend-network` | All backend services + Nginx + MySQL talk here |
+| `frontend-network` | Isolated layer; Nginx bridges both networks |
+
+> **Key insight:** The `frontend-service` (Nginx) is on **both** networks — it's the only container that touches the outside world on port `8080` and internally routes requests to backend containers by their **service name** (Docker's built-in DNS).
+
+---
+
+### Port Mapping
+
+| Container | Service Name | Host Port → Container Port | Role |
+|---|---|---|---|
+| `shopflow-frontend` | `frontend-service` | `8080 → 80` | Nginx serves React + proxies API |
+| `auth_container` | `auth-service` | `3001 → 3000` | JWT Auth (register, login) |
+| `order_container` | `order-service` | `3002 → 3000` | Cart & Orders |
+| `product_container` | `product-service` | `3003 → 3000` | Products & Categories |
+| `user_container` | `user-service` | `3004 → 3000` | User Profiles & Addresses |
+| `mysql-microservices` | `mysql-db` | `3308 → 3306` | Shared MySQL (4 databases) |
+
+> All Node.js services **internally listen on port `3000`** inside their container. The host ports (`3001–3004`) are different just to avoid conflicts on your machine.
+
+---
+
+### How Nginx Routes API Calls (No Separate Gateway Needed)
+
+Nginx inside `shopflow-frontend` acts as the **API Gateway**:
+
+```
+Browser → localhost:8080
+              │
+              ├── /api/auth/*     → http://auth-service:3000
+              ├── /api/users/*    → http://user-service:3000
+              ├── /api/products/* → http://product-service:3000
+              ├── /api/orders/*   → http://order-service:3000
+              └── /*              → React SPA (index.html)
+```
+
+Container-to-container calls use **Docker DNS** — e.g., `auth-service` resolves to the `auth_container`'s IP automatically. No IPs hardcoded.
+
+---
+
+### MySQL — Single Container, 4 Databases
+
+Rather than running 4 separate MySQL containers, a **single `mysql-db` container** hosts all 4 databases:
+
+| Database | Owned By |
+|---|---|
+| `auth_db` | auth-service |
+| `order_db` | order-service |
+| `product_db` | product-service |
+| `user_db` | user-service |
+
+Each service's `init.sql` is auto-executed at container startup via `docker-entrypoint-initdb.d/`.
+
+---
+
+## 🚀 Quick Start (Docker)
+
 ```bash
-mysql -u root -p < services/auth-service/src/db/init.sql
-mysql -u root -p < services/user-service/src/db/init.sql
-mysql -u root -p < services/product-service/src/db/init.sql
-mysql -u root -p < services/order-service/src/db/init.sql
-```
+# Clone the repo
+git clone https://github.com/your-username/3tier-app.git
+cd 3tier-app
 
-### 2. Configure Environment Variables
+# Start everything
+docker compose up --build -d
 
-Copy `.env.example` to `.env` in each service and update:
-```bash
-cd services/auth-service && cp .env.example .env
-cd services/user-service && cp .env.example .env
-cd services/product-service && cp .env.example .env
-cd services/order-service && cp .env.example .env
-```
-
-> ⚠️ **Important**: Use the **same** `JWT_SECRET` in all services!
-
-### 3. Start Each Service
-
-```bash
-# Terminal 1 — Auth Service
-cd services/auth-service && npm run dev
-
-# Terminal 2 — User Service
-cd services/user-service && npm run dev
-
-# Terminal 3 — Product Service
-cd services/product-service && npm run dev
-
-# Terminal 4 — Order Service
-cd services/order-service && npm run dev
-
-# Terminal 5 — Frontend
-cd frontend && npm run dev
-```
-
-### 4. Open the App
-
-```
-http://localhost:3000
+# Open the app
+http://localhost:8080
 ```
 
 **Demo Login:** `admin@shopflow.com` / `Admin@123`
@@ -89,7 +164,7 @@ http://localhost:3000
 
 ## 🔌 API Reference
 
-### Auth Service (3001)
+### Auth Service — `localhost:3001`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register user |
@@ -98,7 +173,7 @@ http://localhost:3000
 | POST | `/api/auth/refresh` | Refresh token |
 | GET | `/api/auth/me` | Get current user |
 
-### User Service (3002)
+### User Service — `localhost:3004`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/users` | List all users (admin) |
@@ -108,7 +183,7 @@ http://localhost:3000
 | POST | `/api/users/:id/addresses` | Add address |
 | DELETE | `/api/users/:id/addresses/:addrId` | Delete address |
 
-### Product Service (3003)
+### Product Service — `localhost:3003`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/products` | List products (search, filter) |
@@ -119,7 +194,7 @@ http://localhost:3000
 | GET | `/api/products/categories` | List categories |
 | PATCH | `/api/products/:id/stock` | Update stock (admin) |
 
-### Order Service (3004)
+### Order Service — `localhost:3002`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/orders/cart` | Get cart |
@@ -134,9 +209,17 @@ http://localhost:3000
 
 ---
 
-## 🐳 Docker & Gateway
+## 🛠️ Tech Stack
 
-You handle this part — all services are ready with:
-- Health check endpoint: `GET /health`
-- CORS configured via `ALLOWED_ORIGINS` env
-- `.env.example` for every service
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, CSS |
+| API Gateway | Nginx (reverse proxy inside Docker) |
+| Backend | Node.js, Express.js |
+| Auth | JWT (Access + Refresh tokens) |
+| Database | MySQL 8 |
+| Containerization | Docker, Docker Compose |
+
+---
+
+> **Health check:** Every service exposes `GET /health` — used by Docker's `healthcheck` to ensure MySQL is ready before services start.
